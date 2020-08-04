@@ -14,7 +14,7 @@ jobs:
       matrix:
         destination: ['platform=iOS Simulator,OS=13.5,name=iPhone 8']
         xcode: ['/Applications/Xcode_11.5.app/Contents/Developer']
-
+    
     steps:
     - uses: actions/checkout@v2
     - name: Bundle Install
@@ -23,8 +23,30 @@ jobs:
       run: bundle exec danger
       env:
         DANGER_GITHUB_API_TOKEN: ${{ secrets.DANGER_GITHUB_API_TOKEN }}
-    - name: Install cocoapods dependencies
-      run: bundle exec fastlane cocoapods_install
+
+    - name: Bootstrap Dependencies
+      run: |
+        carthage bootstrap --no-use-binaries --platform iOS --cache-builds
+        bundle exec fastlane cocoapods_install
+      env:
+        DEVELOPER_DIR: ${{ matrix.xcode }}
+
+    - name: Cache Carthage Dependencies
+      uses: actions/cache@v2
+      with:
+        path: Carthage
+        key: ${{ runner.os }}-carthage-${{ hashFiles('**/Cartfile.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-carthage-
+      
+    - name: Cache Cocoapods Dependencies
+      uses: actions/cache@v2
+      with:
+        path: Pods
+        key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-pods-
+
     - name: Build and test
       run: bundle exec fastlane scan --destination "${destination}" --scheme "ghactions-poc"
       env: 
